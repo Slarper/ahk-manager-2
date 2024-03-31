@@ -3,7 +3,7 @@
 
 use std::{sync::Mutex, process::{Child, Command}, path::Path, collections::HashMap};
 
-use tauri::State;
+use tauri::{State, Manager};
 use walkdir::WalkDir;
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
@@ -14,6 +14,23 @@ fn greet(name: &str) -> String {
 
 fn main() {
     tauri::Builder::default()
+        .on_window_event(|event|{
+            match event.event() {
+                tauri::WindowEvent::CloseRequested {..} => {
+                    //阻止默认关闭
+                    //api.prevent_close();
+
+                    
+
+                     let window = event.window().clone();
+
+                     let handler_map = window.state::<ScriptHandlerMap>();
+                    clear_script_handlers(handler_map).unwrap();
+                    // window.close();
+                }
+                _ => {} //todo
+            }
+        })
         .manage(ScriptHandlerMap(Default::default()))
         .invoke_handler(tauri::generate_handler![
             greet, 
@@ -48,8 +65,12 @@ fn scan_folder(folder_path: String) -> Vec<String> {
             }
         }
     }
+
+    println!("Scan Foler");
     // self.instances = ahk_files;
     scripts
+
+    
 
     
 }
@@ -77,5 +98,20 @@ fn shutdowm_script(file_path: String, handler_map: State<ScriptHandlerMap>) -> R
             return Err(e.to_string())
         }
     }
+    Ok(())
+}
+
+fn clear_script_handlers(handler_map: State<ScriptHandlerMap>) -> Result<(), String> {
+    let mut handlers = handler_map.0.lock().unwrap();
+    for child in handlers.values_mut(){
+        let r = child.kill();
+
+        if let Err(e) = r {
+            return Err(e.to_string())
+        }
+    } // Assuming `clear` is a method to reset or clear your map
+
+    handlers.clear();
+    println!("Script handlers cleared.");
     Ok(())
 }
